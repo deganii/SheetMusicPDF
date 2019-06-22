@@ -1,0 +1,42 @@
+﻿<Window x:Class="SheetMusicPDF.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" 
+        xmlns:SheetMusicPDF="clr-namespace:SheetMusicPDF"
+        Title="MainWindow" Height="350" Width="525"
+        DataContext="{Binding RelativeSource={RelativeSource Self}}"
+        >
+    <Window.ContextMenu>
+        <ContextMenu>
+            <MenuItem Header="Open..." Click="MenuItem_Click"/>
+            <MenuItem Header="Exit" />
+        </ContextMenu>
+    </Window.ContextMenu>
+    <Grid >
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"></ColumnDefinition>
+            <ColumnDefinition Width="20"></ColumnDefinition>
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"></RowDefinition>
+        </Grid.RowDefinitions>        
+        <Grid.Resources>
+             
+            <SheetMusicPDF:ImageToBitmapSourceConverter x:Key="ImageConverter"/>
+        </Grid.Resources>
+        <Slider Grid.Row="0" Grid.Column="1" Orientation="Vertical" ValueChanged="Slider_ValueChanged"/>
+        <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+            <ItemsControl ItemsSource="{Binding PDFPageImageList}" Margin="0">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Image Source="{Binding Converter={StaticResource ImageConverter}}"/>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                            <WrapPanel/>
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+            </ItemsControl>
+            </ScrollViewer>
+    </Grid>
+</Window>
