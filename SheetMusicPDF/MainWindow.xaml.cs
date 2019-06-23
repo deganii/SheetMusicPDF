@@ -22,6 +22,7 @@ using Ghostscript.NET.Rasterizer;
 using Application = System.Windows.Application;
 using Image = System.Drawing.Image;
 using KeyEventArgs = System.Windows.Input.KeyEventArgs;
+using MenuItem = System.Windows.Controls.MenuItem;
 using MessageBox = System.Windows.MessageBox;
 using OpenFileDialog = Microsoft.Win32.OpenFileDialog;
 using Point = System.Drawing.Point;
@@ -36,9 +37,6 @@ namespace SheetMusicPDF
     {
         private Size _size;
         private Point _location;
-        private int crop = 2;
-
-        private string PdfFile = @"C:\dev\SheetMusicPDF\SheetMusicPDF\Data\IMSLP310090-PMLP02404-Debussy_-_Reverie_pianoviolinscore.pdf";
 
         public Rectangle RestoreRect { get; set; }
         public bool IsMaximized { get; set; }
@@ -64,14 +62,56 @@ namespace SheetMusicPDF
             }
         }
 
-        private int _cropValue;
-        public int CropValue
+        private double _cropPercentage;
+        public double CropPercentage
+        {
+            get { return _cropPercentage; }
+            set
+            {
+                _cropPercentage = value;
+                var ic = (ItemsControl)ScrollPDF.Content;
+                var itemWidth = ((ContentPresenter)ic.ItemContainerGenerator.
+                    ContainerFromItem(ic.Items[0])).ActualWidth;
+                var itemHeight = ((ContentPresenter)ic.ItemContainerGenerator.
+                    ContainerFromItem(ic.Items[0])).ActualWidth;
+                var hCrop = itemWidth*(_cropPercentage/100.0);
+                var vCrop = itemHeight*(_cropPercentage/100.0);
+                CropValue = new Thickness(hCrop, vCrop, hCrop, vCrop);
+                OnPropertyChanged("CropPercentage");
+            }
+        }
+
+        private int _pagesToFit = 4;
+        public int PagesToFit
+        {
+            get { return _pagesToFit; }
+            set
+            {
+                _pagesToFit = value;
+                OnPropertyChanged("PagesToFit");
+            }
+        }
+
+
+        private Thickness _cropValue;
+        public Thickness CropValue
         {
             get { return _cropValue; }
             set
             {
                 _cropValue = value;
                 OnPropertyChanged("CropValue");
+            }
+        }
+
+        private Thickness _itemsMargin;
+        public Thickness ItemsMargin
+        {
+            get { return _itemsMargin; }
+            set
+            {
+                _itemsMargin = value;
+                OnPropertyChanged("ItemsMargin");
             }
         }
 
@@ -85,6 +125,7 @@ namespace SheetMusicPDF
                 Maximize();
                 IsMaximized = true;
                 KeyDown += OnKeyDown;
+                BuildScalingMenu();
             };
             
         }
@@ -157,6 +198,9 @@ namespace SheetMusicPDF
             set { _size = value; }
         }
 
+
+
+
         private GhostscriptVersionInfo _lastInstalledVersion = null;
         private GhostscriptRasterizer _rasterizer = null;
 
@@ -215,8 +259,89 @@ namespace SheetMusicPDF
                 _pdfPageUncroppedImageList = GetImages(openFileDialog.FileName);
                 PDFPageImageList = _pdfPageUncroppedImageList;
                 MenuCrop.IsEnabled = true;
+                UpdateScaling();
             }
 
+        }
+
+        private void BuildScalingMenu()
+        {
+            MenuScaling.Items.Add(new MenuItem {
+                Header = "No Fit (Maximal Scaling)",
+                Tag = 0, IsCheckable = true, 
+            });
+            for(int i = 1; i < 9; i++)
+            {
+                MenuScaling.Items.Add(new MenuItem{
+                    Header = string.Format("Fit {0} page", i) + (i ==1 ? "":"s"),
+                    Tag = i,
+                    IsCheckable = true
+                });
+            }
+            foreach (MenuItem mi in MenuScaling.Items)
+            {
+                mi.Click += MiOnClick;
+            }
+        }
+
+        private void MiOnClick(object sender, RoutedEventArgs routedEventArgs)
+        {
+            var m = (MenuItem)sender;
+            PagesToFit = (int)m.Tag;
+            foreach(MenuItem mi in MenuScaling.Items)
+            {
+                mi.IsChecked = false;
+            }
+            m.IsChecked = true;
+            UpdateScaling();
+        }
+
+        private void UpdateScaling()
+        {
+      
+            if (PDFPageImageList == null || PagesToFit == 0)
+            {
+                ItemsMargin = new Thickness(0);
+                return;
+            }
+
+            var image = PDFPageImageList[0];
+            var screenWidth = ActualWidth - 2*SystemParameters.ResizeFrameVerticalBorderWidth;
+            var screenHeight = ActualHeight - 
+                (SystemParameters.WindowCaptionHeight
+                + SystemParameters.ResizeFrameHorizontalBorderHeight
+                + SystemParameters.HorizontalScrollBarHeight);
+            //var screenWidth = PDFContentArea.ActualWidth;
+            //var screenHeight = PDFContentArea.ActualHeight;
+
+            var screenAspect = screenWidth/screenHeight;
+            var pageWidth = image.PixelWidth;
+            var pageHeight = image.PixelHeight;
+            var pageAspect = ((double)PagesToFit*pageWidth) / pageHeight;
+
+            var newWidth = screenWidth;
+            var newHeight = screenHeight;
+
+            if(screenAspect > pageAspect) // need to reduce width
+            {
+                newWidth = screenHeight * pageAspect;
+
+            } else // need to reduce height
+            {
+                newHeight = screenWidth / pageAspect;
+            }
+            var horiz = (screenWidth - newWidth)/2.0;
+            var vert = (screenHeight - newHeight)/2.0;
+            ItemsMargin = new Thickness(horiz,vert,horiz,vert);
+            
+            var ic = (ItemsControl)ScrollPDF.Content;
+            var itemWidth = ((ContentPresenter)ic.ItemContainerGenerator.
+                ContainerFromItem(ic.Items[0])).ActualWidth;
+            if (itemWidth > double.Epsilon)
+            {
+                var offset = Math.Round(ScrollPDF.HorizontalOffset/itemWidth)*itemWidth;
+                ScrollPDF.ScrollToHorizontalOffset(offset);
+            }
         }
 
         private void UpdateCrop()
@@ -225,12 +350,13 @@ namespace SheetMusicPDF
             var images = _pdfPageUncroppedImageList;
             foreach (var image in images)
             {
-                var newW = (int)image.Width - (CropValue * 2);
-                var newH = (int)image.Height - (CropValue * 2);
+                var newW = (int)image.Width - (int)CropValue.Left - (int)CropValue.Right;
+                var newH = (int)image.Height - (int)CropValue.Top - (int)CropValue.Bottom;
                 cropped.Add(new CroppedBitmap(image, new Int32Rect(
-                    CropValue, CropValue, newW, newH)));
+                    (int)CropValue.Left, (int)CropValue.Top, newW, newH)));
             }
             PDFPageImageList = cropped;
+            UpdateScaling();
         }
 
         public void Restore()
@@ -299,11 +425,41 @@ namespace SheetMusicPDF
             PDFPageImageList = _pdfPageUncroppedImageList;
             // let the uncropped pictures refresh and then show a popup
             //Dispatcher.BeginInvoke(new Action(()=> {
-                var popup = new CropWindow(this) {CropValue = CropValue};
-                        popup.ShowDialog();
-                        IsCropping = false;
-                        UpdateCrop();
+            //if(_cropWindow == null)
+           // {
+            var popup = new CropWindow(this, CropPercentage);
+                
+            //}
+
+            popup.ShowDialog();
+            IsCropping = false;
+            UpdateCrop();
             //}));
+        }
+
+        private void PDFWindow_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            UpdateScaling();
+        }
+    }
+
+
+
+
+        [ValueConversion(typeof(bool), typeof(Visibility))]
+    public class CropToMarginConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        {
+            if (value == null) return null;
+
+            var isVisible = (bool)value;
+            return isVisible ? Visibility.Visible : Visibility.Hidden;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        {
+            throw new NotImplementedException();
         }
     }
 
@@ -347,10 +503,8 @@ namespace SheetMusicPDF
             var bitmap = new Bitmap(myImage);
             IntPtr bmpPt = bitmap.GetHbitmap();
             BitmapSource bitmapSource =
-             System.Windows.Interop.Imaging.CreateBitmapSourceFromHBitmap(
-                   bmpPt,
-                   IntPtr.Zero,
-                   Int32Rect.Empty,
+             Imaging.CreateBitmapSourceFromHBitmap(
+                   bmpPt, IntPtr.Zero, Int32Rect.Empty,
                    BitmapSizeOptions.FromEmptyOptions());
 
             //freeze bitmapSource and clear memory to avoid memory leaks

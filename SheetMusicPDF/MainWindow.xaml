@@ -4,12 +4,15 @@
         xmlns:SheetMusicPDF="clr-namespace:SheetMusicPDF"
         Title="MainWindow" Height="350" Width="525"
         DataContext="{Binding RelativeSource={RelativeSource Self}}"
-        x:Name="PDFWindow"
+        x:Name="PDFWindow" SizeChanged="PDFWindow_SizeChanged"
         >
     <Window.ContextMenu>
         <ContextMenu>
             <MenuItem Header="Open..." Click="MenuItem_Click"/>
             <MenuItem Name="MenuCrop" Header="Crop..." Click="Crop_Click" IsEnabled="False"/>
+            <MenuItem Name="MenuScaling" Header="Scaling / Fit">
+            </MenuItem>
+            <Separator/>
             <MenuItem Header="Exit" />
         </ContextMenu>
     </Window.ContextMenu>
@@ -18,19 +21,15 @@
     </Window.Resources>
     <Grid >
         <Grid.ColumnDefinitions>
-<!--            <ColumnDefinition Width="*"></ColumnDefinition>-->
-<!--            <ColumnDefinition Width="20"></ColumnDefinition>-->
         </Grid.ColumnDefinitions>
         <Grid.RowDefinitions>
             <RowDefinition Height="*"></RowDefinition>
         </Grid.RowDefinitions>        
         <Grid.Resources>
             <SheetMusicPDF:VisibilityConverter x:Key="VisibilityConverter"/>
-            <SheetMusicPDF:ImageToBitmapSourceConverter x:Key="ImageConverter"/>
         </Grid.Resources>
-<!--        <Slider Grid.Row="0" Grid.Column="1" Orientation="Vertical" ValueChanged="Slider_ValueChanged" MouseUp="SliderClick"/>-->
-        <ScrollViewer Name="ScrollPDF" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
-            <ItemsControl ItemsSource="{Binding PDFPageImageList}" Margin="0">
+        <ScrollViewer Focusable="False" Name="ScrollPDF" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" Margin="{Binding ItemsMargin}">
+            <ItemsControl Name="PDFContentArea" ItemsSource="{Binding PDFPageImageList}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
                         <Border Background="GhostWhite" BorderBrush="Gainsboro" BorderThickness="1,0,1,0">

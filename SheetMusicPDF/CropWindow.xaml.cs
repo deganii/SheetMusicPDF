@@ -19,21 +19,18 @@ namespace SheetMusicPDF
     /// </summary>
     public partial class CropWindow : INotifyPropertyChanged
     {
-        private int _cropValue;
-        public int CropValue
-        {
-            get { return _cropValue; }
-            set
-            {
-                _cropValue = value;
-                OnPropertyChanged("CropValue");
-            }
-        }
+        public double CropPercentage { get; set; }
 
-        public CropWindow(Window owner)
+        public CropWindow(Window owner, double cropPercentage)
         {
+            CropPercentage = cropPercentage;
             InitializeComponent();
             Owner = owner;
+            Activated += (sender, args) =>
+                          {
+                              SliderCrop.Value = CropPercentage;
+                          };
+            
         }
 
         // Create the OnPropertyChanged method to raise the event
@@ -55,7 +52,7 @@ namespace SheetMusicPDF
 
         private void SliderCrop_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
-            ((MainWindow) (Owner)).CropValue = (int)e.NewValue;
+            ((MainWindow) (Owner)).CropPercentage = e.NewValue;
         }
     }
 }
