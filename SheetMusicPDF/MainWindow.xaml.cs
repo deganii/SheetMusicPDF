@@ -179,6 +179,7 @@ namespace SheetMusicPDF
                 IsMaximized = true;
                 KeyDown += OnKeyDown;
                 BuildScalingMenu();
+                
             };
             
         }
@@ -335,18 +336,24 @@ namespace SheetMusicPDF
             {
                 mi.Click += MiOnClick;
             }
+            UpdateScaleMenu();
         }
 
         private void MiOnClick(object sender, RoutedEventArgs routedEventArgs)
         {
             var m = (MenuItem)sender;
             PagesToFit = (int)m.Tag;
-            foreach(MenuItem mi in MenuScaling.Items)
-            {
-                mi.IsChecked = false;
-            }
-            m.IsChecked = true;
+            UpdateScaleMenu();
             UpdateScaling();
+        }
+
+        private void UpdateScaleMenu()
+        {
+            foreach (MenuItem mi in MenuScaling.Items)
+            {
+                 mi.IsChecked = (int)mi.Tag == PagesToFit;
+            }
+
         }
 
         private void UpdateScaling()
