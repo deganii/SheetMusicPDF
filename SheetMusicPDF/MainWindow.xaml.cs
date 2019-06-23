@@ -1,19 +1,29 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
+using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
+using System.Windows.Forms;
+using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media.Imaging;
 using Ghostscript.NET;
 using Ghostscript.NET.Rasterizer;
-using Microsoft.Win32;
+using Application = System.Windows.Application;
 using Image = System.Drawing.Image;
+using KeyEventArgs = System.Windows.Input.KeyEventArgs;
+using MessageBox = System.Windows.MessageBox;
+using OpenFileDialog = Microsoft.Win32.OpenFileDialog;
 using Point = System.Drawing.Point;
 using Size = System.Drawing.Size;
 
@@ -30,8 +40,12 @@ namespace SheetMusicPDF
 
         private string PdfFile = @"C:\dev\SheetMusicPDF\SheetMusicPDF\Data\IMSLP310090-PMLP02404-Debussy_-_Reverie_pianoviolinscore.pdf";
 
-        private ObservableCollection<Image> _pdfPageImageList;
-        public ObservableCollection<Image> PDFPageImageList
+        public Rectangle RestoreRect { get; set; }
+        public bool IsMaximized { get; set; }
+
+        private ObservableCollection<BitmapSource> _pdfPageUncroppedImageList;
+        private ObservableCollection<BitmapSource> _pdfPageImageList;
+        public ObservableCollection<BitmapSource> PDFPageImageList
         {
             get { return _pdfPageImageList; }
             set { _pdfPageImageList = value;
@@ -39,16 +53,25 @@ namespace SheetMusicPDF
             }
         }
 
-
-
-        private ObservableCollection<Image> _pdfPageCroppedImageList;
-        public ObservableCollection<Image> PDFPageCroppedImageList
+        private bool _isCropping = false;
+        public bool IsCropping
         {
-            get { return _pdfPageCroppedImageList; }
+            get { return _isCropping; }
             set
             {
-                _pdfPageCroppedImageList = value;
-                OnPropertyChanged("PDFPageCroppedImageList");
+                _isCropping = value;
+                OnPropertyChanged("IsCropping");
+            }
+        }
+
+        private int _cropValue;
+        public int CropValue
+        {
+            get { return _cropValue; }
+            set
+            {
+                _cropValue = value;
+                OnPropertyChanged("CropValue");
             }
         }
 
@@ -56,17 +79,70 @@ namespace SheetMusicPDF
         public MainWindow()
         {
             InitializeComponent();
-            //PDFPageImageList = GetImages();
-            //  initialize to fill entire screen
-            /* int screenLeft = SystemInformation.VirtualScreen.Left;
-             int screenTop = SystemInformation.VirtualScreen.Top;
-             int screenWidth = SystemInformation.VirtualScreen.Width;
-             int screenHeight = SystemInformation.VirtualScreen.Height;
+            Loaded += (sender, args) => {
+                var source = HwndSource.FromHwnd(new WindowInteropHelper(this).Handle);
+                if (source != null) source.AddHook(WndProc);
+                Maximize();
+                IsMaximized = true;
+                KeyDown += OnKeyDown;
+            };
+            
+        }
 
-             this.Size = new System.Drawing.Size(screenWidth, screenHeight);
-             this.Location = new System.Drawing.Point(screenLeft, screenTop);*/
 
+        private long lastKeyPressTime = 0;
+        private int lastKeyPressNumber = 0;
+        private void OnKeyDown(object sender, KeyEventArgs k)
+        {
+            if(PDFPageImageList != null && PDFPageImageList.Count > 0)
+            {
+                var ic = (ItemsControl)ScrollPDF.Content;
+                var itemWidth = ((ContentPresenter)ic.ItemContainerGenerator.
+                    ContainerFromItem(ic.Items[0])).ActualWidth;
+                var numItemsShown = Math.Round(ActualWidth/itemWidth);
+                var maxScroll = (PDFPageImageList.Count - numItemsShown)*itemWidth;
+                // align offset to page
+                var offset = Math.Round(ScrollPDF.HorizontalOffset / itemWidth) * itemWidth;
 
+                if (k.Key == Key.Space ||  k.Key == Key.Right || k.Key == Key.Down)
+                {
+                    ScrollPDF.ScrollToHorizontalOffset(
+                        Math.Min(maxScroll, offset + itemWidth));
+                }else if  (k.Key == Key.Left || k.Key == Key.Up)
+                {
+                    ScrollPDF.ScrollToHorizontalOffset(offset - itemWidth);
+                }
+                else if (k.Key == Key.Home)
+                {
+                    ScrollPDF.ScrollToLeftEnd();
+                }
+                else if (k.Key == Key.End)
+                {
+                    ScrollPDF.ScrollToHorizontalOffset(maxScroll);
+                    //ScrollPDF.ScrollToRightEnd();
+                }
+                else if ((k.Key >= Key.D0 && k.Key <= Key.D9) ||
+                    (k.Key >= Key.NumPad0 && k.Key <= Key.NumPad9))
+                {
+                    int num;
+                    if(int.TryParse(k.Key.ToString().First(
+                        char.IsDigit).ToString(CultureInfo.InvariantCulture), out num))
+                    {
+                        var time = DateTime.Now.Ticks / TimeSpan.TicksPerMillisecond;
+                        
+                        // 2 key within 200ms = double key press  
+                        if (time - lastKeyPressTime < 200)
+                        { 
+                            num += lastKeyPressNumber*10;
+                        }
+                        if (num != 0) {
+                            ScrollPDF.ScrollToHorizontalOffset((num - 1)*itemWidth);
+                        }
+                        lastKeyPressTime = time;
+                        lastKeyPressNumber = num;
+                    }
+                } 
+            }
         }
 
         public Point Location
@@ -84,9 +160,9 @@ namespace SheetMusicPDF
         private GhostscriptVersionInfo _lastInstalledVersion = null;
         private GhostscriptRasterizer _rasterizer = null;
 
-        public ObservableCollection<Image> GetImages(string inputPdfPath)
+        public ObservableCollection<BitmapSource> GetImages(string inputPdfPath)
         {
-            var images = new ObservableCollection<Image>();
+            var images = new List<Image>();
             
             int desired_x_dpi = 96;
             int desired_y_dpi = 96;
@@ -114,7 +190,9 @@ namespace SheetMusicPDF
 
                 //Console.WriteLine(pageFilePath);
             }
-            return images;
+            var converter = new ImageToBitmapSourceConverter();
+            return new ObservableCollection<BitmapSource>(
+                images.Select(converter.Convert));;
         }
 
         // Create the OnPropertyChanged method to raise the event
@@ -133,68 +211,117 @@ namespace SheetMusicPDF
         {
             var openFileDialog = new OpenFileDialog();
             if (openFileDialog.ShowDialog() == true)
-                PDFPageImageList = GetImages(openFileDialog.FileName);
-            
+            {
+                _pdfPageUncroppedImageList = GetImages(openFileDialog.FileName);
+                PDFPageImageList = _pdfPageUncroppedImageList;
+                MenuCrop.IsEnabled = true;
+            }
+
         }
 
-        private void Slider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        private void UpdateCrop()
         {
-
-            var cropped = new ObservableCollection<Image>();
-            var images = PDFPageImageList;
-            foreach(Image image in images)
+            var cropped = new ObservableCollection<BitmapSource>();
+            var images = _pdfPageUncroppedImageList;
+            foreach (var image in images)
             {
-                cropped.Add(CropImage(image, 400,400,100,100));
+                var newW = (int)image.Width - (CropValue * 2);
+                var newH = (int)image.Height - (CropValue * 2);
+                cropped.Add(new CroppedBitmap(image, new Int32Rect(
+                    CropValue, CropValue, newW, newH)));
             }
-            PDFPageCroppedImageList = cropped;
+            PDFPageImageList = cropped;
         }
 
-        public Image CropImage(Image Image, int Height, int Width, int StartAtX, int StartAtY)
+        public void Restore()
         {
-            Image outimage;
-            MemoryStream mm = null;
-            try
+            Width = RestoreRect.Width;
+            Height = RestoreRect.Height;
+            Left = RestoreRect.Left;
+            Top = RestoreRect.Top;
+        }
+
+        public void Maximize()
+        {
+            if (Screen.AllScreens.Length > 1)
             {
-                //check the image height against our desired image height
-                if (Image.Height < Height)
-                {
-                    Height = Image.Height;
-                }
-
-                if (Image.Width < Width)
-                {
-                    Width = Image.Width;
-                }
-
-                //create a bitmap window for cropping
-                Bitmap bmPhoto = new Bitmap(Width, Height, PixelFormat.Format24bppRgb);
-                bmPhoto.SetResolution(72, 72);
-
-                //create a new graphics object from our image and set properties
-                Graphics grPhoto = Graphics.FromImage(bmPhoto);
-                grPhoto.SmoothingMode = SmoothingMode.AntiAlias;
-                grPhoto.InterpolationMode = InterpolationMode.HighQualityBicubic;
-                grPhoto.PixelOffsetMode = PixelOffsetMode.HighQuality;
-
-                //now do the crop
-                grPhoto.DrawImage(Image, new Rectangle(0, 0, Width, Height), StartAtX, StartAtY, Width, Height, GraphicsUnit.Pixel);
-
-                // Save out to memory and get an image from it to send back out the method.
-                mm = new MemoryStream();
-                bmPhoto.Save(mm, ImageFormat.Jpeg);
-                Image.Dispose();
-                bmPhoto.Dispose();
-                grPhoto.Dispose();
-                outimage = Image.FromStream(mm);
-                return outimage;
+                RestoreRect = new Rectangle {
+                    Width = (int) ActualWidth,
+                    Height = (int) ActualHeight,
+                    X = (int) Left,
+                    Y = (int) Top
+                };
+                var entireSize = Screen.AllScreens.
+                    Aggregate(Rectangle.Empty, (current, s) => 
+                        Rectangle.Union(current, s.Bounds));
+                Width = entireSize.Width;
+                Height = entireSize.Height;
+                Left = entireSize.Left;
+                Top = entireSize.Top;
             }
-            catch (Exception ex)
+            else
             {
-                return Image;
-                //throw new Exception("Error cropping image, the error was: " + ex.Message);
+                Application.Current.MainWindow.WindowState = WindowState.Maximized;
             }
         }
 
+        const int WM_SYSCOMMAND = 0x0112;
+        const int SC_MAXIMIZE = 0xF030;
+        private static IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
+        {
+            if (msg == WM_SYSCOMMAND)
+            {
+                if (wParam.ToInt32() == SC_MAXIMIZE)
+                {
+                    var hwndSource = HwndSource.FromHwnd(hwnd);
+                    if (hwndSource != null)
+                    {
+                        var window = (MainWindow) hwndSource.RootVisual;
+                        if(window.IsMaximized)
+                        {
+                            window.Restore();
+                        }else
+                        {
+                            window.Maximize();
+                        }
+
+                        window.IsMaximized = !window.IsMaximized;
+                    }
+                    handled = true;
+                }
+            }
+            return IntPtr.Zero;
+        }
+
+        private void Crop_Click(object sender, RoutedEventArgs e)
+        {
+            IsCropping = true;
+            PDFPageImageList = _pdfPageUncroppedImageList;
+            // let the uncropped pictures refresh and then show a popup
+            //Dispatcher.BeginInvoke(new Action(()=> {
+                var popup = new CropWindow(this) {CropValue = CropValue};
+                        popup.ShowDialog();
+                        IsCropping = false;
+                        UpdateCrop();
+            //}));
+        }
+    }
+
+    [ValueConversion(typeof (bool), typeof (Visibility))]
+    public class VisibilityConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        {
+            if (value == null) return null;
+
+            var isVisible = (bool)value;
+            return isVisible ? Visibility.Visible : Visibility.Hidden;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
     }
 
     [ValueConversion(typeof(Image), typeof(BitmapSource))]
@@ -204,12 +331,19 @@ namespace SheetMusicPDF
         [return: MarshalAs(UnmanagedType.Bool)]
         internal static extern bool DeleteObject(IntPtr value);
 
-        public object Convert(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        public BitmapSource Convert(Image myImage)
         {
-            if (value == null) return null;
+            if (myImage == null) return null;
+            try
+            {
+                var width = myImage.Width;
+                var height = myImage.Height;
+                Debug.Assert(width > 0 && height > 0);
 
-            Image myImage = (Image)value;
-
+            } catch(Exception e)
+            {
+                return null;
+            }
             var bitmap = new Bitmap(myImage);
             IntPtr bmpPt = bitmap.GetHbitmap();
             BitmapSource bitmapSource =
@@ -226,10 +360,24 @@ namespace SheetMusicPDF
             return bitmapSource;
         }
 
+        public object Convert(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
+        {
+            if(value == null || !(value is Image))
+            {
+                return null;
+            }
+            return Convert((Image)value);
+        }
+
         public object ConvertBack(object value, Type targetType, object parameter, System.Globalization.CultureInfo culture)
         {
             throw new NotImplementedException();
         }
+
+
+
     }
+
+
 
 }

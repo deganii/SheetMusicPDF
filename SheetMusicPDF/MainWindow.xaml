@@ -4,31 +4,43 @@
         xmlns:SheetMusicPDF="clr-namespace:SheetMusicPDF"
         Title="MainWindow" Height="350" Width="525"
         DataContext="{Binding RelativeSource={RelativeSource Self}}"
+        x:Name="PDFWindow"
         >
     <Window.ContextMenu>
         <ContextMenu>
             <MenuItem Header="Open..." Click="MenuItem_Click"/>
+            <MenuItem Name="MenuCrop" Header="Crop..." Click="Crop_Click" IsEnabled="False"/>
             <MenuItem Header="Exit" />
         </ContextMenu>
     </Window.ContextMenu>
+    <Window.Resources>
+        
+    </Window.Resources>
     <Grid >
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*"></ColumnDefinition>
-            <ColumnDefinition Width="20"></ColumnDefinition>
+<!--            <ColumnDefinition Width="*"></ColumnDefinition>-->
+<!--            <ColumnDefinition Width="20"></ColumnDefinition>-->
         </Grid.ColumnDefinitions>
         <Grid.RowDefinitions>
             <RowDefinition Height="*"></RowDefinition>
         </Grid.RowDefinitions>        
         <Grid.Resources>
-             
+            <SheetMusicPDF:VisibilityConverter x:Key="VisibilityConverter"/>
             <SheetMusicPDF:ImageToBitmapSourceConverter x:Key="ImageConverter"/>
         </Grid.Resources>
-        <Slider Grid.Row="0" Grid.Column="1" Orientation="Vertical" ValueChanged="Slider_ValueChanged"/>
-        <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
+<!--        <Slider Grid.Row="0" Grid.Column="1" Orientation="Vertical" ValueChanged="Slider_ValueChanged" MouseUp="SliderClick"/>-->
+        <ScrollViewer Name="ScrollPDF" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled">
             <ItemsControl ItemsSource="{Binding PDFPageImageList}" Margin="0">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
-                        <Image Source="{Binding Converter={StaticResource ImageConverter}}"/>
+                        <Border Background="GhostWhite" BorderBrush="Gainsboro" BorderThickness="1,0,1,0">
+                            <Grid>
+                                <Image Source="{Binding}" />
+                                <Rectangle Stroke="Red" StrokeThickness="1" 
+                                           Margin="{Binding DataContext.CropValue, ElementName=PDFWindow}"
+                                           Visibility="{Binding DataContext.IsCropping, ElementName=PDFWindow, Converter={StaticResource VisibilityConverter}}"/>
+                            </Grid>
+                        </Border>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
                 <ItemsControl.ItemsPanel>
