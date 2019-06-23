@@ -10,6 +10,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
@@ -17,6 +18,7 @@ using System.Windows.Forms;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media.Imaging;
+using System.Windows.Threading;
 using Ghostscript.NET;
 using Ghostscript.NET.Rasterizer;
 using Application = System.Windows.Application;
@@ -257,11 +259,12 @@ namespace SheetMusicPDF
 
         private GhostscriptVersionInfo _lastInstalledVersion = null;
         private GhostscriptRasterizer _rasterizer = null;
-
-        public ObservableCollection<BitmapSource> GetImages(string inputPdfPath)
+        private Progress _progress;
+        public void LoadImages(string inputPdfPath)
         {
-            var images = new List<Image>();
-            
+            var images = new ObservableCollection<BitmapSource>();
+            var converter = new ImageToBitmapSourceConverter();
+
             int desired_x_dpi = 96;
             int desired_y_dpi = 96;
 
@@ -277,20 +280,33 @@ namespace SheetMusicPDF
 
             _rasterizer.Open(inputPdfPath, _lastInstalledVersion, false);
 
+            Dispatcher.BeginInvoke(new Action(() => {
+                _progress = new Progress(_rasterizer.PageCount);
+                _progress.Show();
+            }));
+
             for (int pageNumber = 1; pageNumber <= _rasterizer.PageCount; pageNumber++)
             {
                 //string pageFilePath = Path.Combine(outputPath, "Page-" + pageNumber.ToString() + ".png");
 
                 var img = _rasterizer.GetPage(desired_x_dpi, desired_y_dpi, pageNumber);
-                images.Add(img);
+                images.Add(converter.Convert(img));
 
                 //img.Save(pageFilePath, ImageFormat.Png);
 
                 //Console.WriteLine(pageFilePath);
+                Dispatcher.BeginInvoke(new Action(() => {
+                    _progress.SetPage(pageNumber);
+                }));    
             }
-            var converter = new ImageToBitmapSourceConverter();
-            return new ObservableCollection<BitmapSource>(
-                images.Select(converter.Convert));;
+            Dispatcher.BeginInvoke(new Action(() => {
+                _pdfPageUncroppedImageList = images;
+                PDFPageImageList = _pdfPageUncroppedImageList;
+                _progress.Close();
+                MenuCrop.IsEnabled = true;
+                UpdateScaling();
+            }));
+
         }
 
         // Create the OnPropertyChanged method to raise the event
@@ -310,10 +326,9 @@ namespace SheetMusicPDF
             var openFileDialog = new OpenFileDialog();
             if (openFileDialog.ShowDialog() == true)
             {
-                _pdfPageUncroppedImageList = GetImages(openFileDialog.FileName);
-                PDFPageImageList = _pdfPageUncroppedImageList;
-                MenuCrop.IsEnabled = true;
-                UpdateScaling();
+                ThreadPool.QueueUserWorkItem(state =>  {
+                    LoadImages(openFileDialog.FileName);
+                });
             }
 
         }

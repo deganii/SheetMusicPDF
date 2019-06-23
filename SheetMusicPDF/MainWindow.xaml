@@ -28,6 +28,7 @@
         <Grid.Resources>
             <SheetMusicPDF:VisibilityConverter x:Key="VisibilityConverter"/>
         </Grid.Resources>
+
         <ScrollViewer Focusable="False" Name="ScrollPDF" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled" Margin="{Binding ItemsMargin}">
             <ItemsControl Name="PDFContentArea" ItemsSource="{Binding PDFPageImageList}">
                 <ItemsControl.ItemTemplate>
@@ -49,5 +50,14 @@
                 </ItemsControl.ItemsPanel>
             </ItemsControl>
             </ScrollViewer>
+        <Popup Name="popupProgress" HorizontalAlignment="Left" Margin="0,0,0,0" AllowsTransparency="True" VerticalAlignment="Top" Height="38" Width="153">
+            <Grid>
+                <ProgressBar HorizontalAlignment="Left"   
+                     Name="progressBar1" Height="25" 
+                     VerticalAlignment="Center" Width="130" 
+                     Foreground="#FF3EA3EA" 
+                     Maximum="140" ForceCursor="False" />
+            </Grid>
+        </Popup>
     </Grid>
 </Window>
