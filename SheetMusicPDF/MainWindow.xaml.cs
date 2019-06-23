@@ -30,6 +30,11 @@ using Size = System.Drawing.Size;
 
 namespace SheetMusicPDF
 {
+    public enum CropType
+    {
+        Custom, HorizVertical, Uniform
+    }
+
     /// <summary>
     /// Interaction logic for MainWindow.xaml
     /// </summary>
@@ -37,6 +42,12 @@ namespace SheetMusicPDF
     {
         private Size _size;
         private Point _location;
+        private CropType _cropType = CropType.Uniform;
+        public CropType CropType
+        {
+            get { return _cropType; }
+            set { _cropType = value; }
+        }
 
         public Rectangle RestoreRect { get; set; }
         public bool IsMaximized { get; set; }
@@ -62,23 +73,65 @@ namespace SheetMusicPDF
             }
         }
 
-        private double _cropPercentage;
-        public double CropPercentage
+        private double _cropUniform;
+        public double CropUniform
         {
-            get { return _cropPercentage; }
+            get { return _cropUniform; }
             set
             {
-                _cropPercentage = value;
-                var ic = (ItemsControl)ScrollPDF.Content;
-                var itemWidth = ((ContentPresenter)ic.ItemContainerGenerator.
-                    ContainerFromItem(ic.Items[0])).ActualWidth;
-                var itemHeight = ((ContentPresenter)ic.ItemContainerGenerator.
-                    ContainerFromItem(ic.Items[0])).ActualWidth;
-                var hCrop = itemWidth*(_cropPercentage/100.0);
-                var vCrop = itemHeight*(_cropPercentage/100.0);
-                CropValue = new Thickness(hCrop, vCrop, hCrop, vCrop);
-                OnPropertyChanged("CropPercentage");
+                _cropUniform = value;
+                UpdateCropThickness(_cropUniform, 
+                    _cropUniform, 
+                    _cropUniform, 
+                    _cropUniform);
+                OnPropertyChanged("CropUniform");
             }
+        }
+
+        private System.Windows.Point _cropHV;
+        public System.Windows.Point CropHV
+        {
+            get { return _cropHV; }
+            set
+            {
+                _cropHV = value;
+                UpdateCropThickness(_cropHV.X,
+                    _cropHV.Y,
+                    _cropHV.X,
+                    _cropHV.Y);
+                OnPropertyChanged("CropHV");
+            }
+        }
+
+        private Thickness _cropCustom;
+        public Thickness CropCustom
+        {
+            get { return _cropCustom; }
+            set
+            {
+                _cropCustom = value;
+                UpdateCropThickness(
+                    _cropCustom.Left,
+                    _cropCustom.Top,
+                    _cropCustom.Right,
+                    _cropCustom.Bottom);
+                OnPropertyChanged("CropCustom");
+            }
+        }
+
+        private void UpdateCropThickness(double left, double top, 
+            double right, double bottom)
+        {
+            var ic = (ItemsControl)ScrollPDF.Content;
+            var itemWidth = ((ContentPresenter)ic.ItemContainerGenerator.
+                ContainerFromItem(ic.Items[0])).ActualWidth;
+            var itemHeight = ((ContentPresenter)ic.ItemContainerGenerator.
+                ContainerFromItem(ic.Items[0])).ActualWidth;
+            var lCrop = itemWidth * (left / 100.0);
+            var rCrop = itemWidth * (right / 100.0);
+            var tCrop = itemHeight * (top / 100.0);
+            var bCrop = itemHeight * (bottom / 100.0);
+            CropThickness = new Thickness(lCrop, tCrop, rCrop, bCrop);
         }
 
         private int _pagesToFit = 4;
@@ -93,14 +146,14 @@ namespace SheetMusicPDF
         }
 
 
-        private Thickness _cropValue;
-        public Thickness CropValue
+        private Thickness _cropThickness;
+        public Thickness CropThickness
         {
-            get { return _cropValue; }
+            get { return _cropThickness; }
             set
             {
-                _cropValue = value;
-                OnPropertyChanged("CropValue");
+                _cropThickness = value;
+                OnPropertyChanged("CropThickness");
             }
         }
 
@@ -251,7 +304,7 @@ namespace SheetMusicPDF
 
         public event PropertyChangedEventHandler PropertyChanged;
 
-        private void MenuItem_Click(object sender, RoutedEventArgs e)
+        private void MenuItemOpenClick(object sender, RoutedEventArgs e)
         {
             var openFileDialog = new OpenFileDialog();
             if (openFileDialog.ShowDialog() == true)
@@ -350,10 +403,10 @@ namespace SheetMusicPDF
             var images = _pdfPageUncroppedImageList;
             foreach (var image in images)
             {
-                var newW = (int)image.Width - (int)CropValue.Left - (int)CropValue.Right;
-                var newH = (int)image.Height - (int)CropValue.Top - (int)CropValue.Bottom;
+                var newW = (int)image.Width - (int)CropThickness.Left - (int)CropThickness.Right;
+                var newH = (int)image.Height - (int)CropThickness.Top - (int)CropThickness.Bottom;
                 cropped.Add(new CroppedBitmap(image, new Int32Rect(
-                    (int)CropValue.Left, (int)CropValue.Top, newW, newH)));
+                    (int)CropThickness.Left, (int)CropThickness.Top, newW, newH)));
             }
             PDFPageImageList = cropped;
             UpdateScaling();
@@ -427,7 +480,7 @@ namespace SheetMusicPDF
             //Dispatcher.BeginInvoke(new Action(()=> {
             //if(_cropWindow == null)
            // {
-            var popup = new CropWindow(this, CropPercentage);
+            var popup = new CropWindow(this);
                 
             //}
 

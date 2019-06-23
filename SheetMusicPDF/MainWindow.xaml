@@ -8,7 +8,7 @@
         >
     <Window.ContextMenu>
         <ContextMenu>
-            <MenuItem Header="Open..." Click="MenuItem_Click"/>
+            <MenuItem Header="Open..." Click="MenuItemOpenClick"/>
             <MenuItem Name="MenuCrop" Header="Crop..." Click="Crop_Click" IsEnabled="False"/>
             <MenuItem Name="MenuScaling" Header="Scaling / Fit">
             </MenuItem>
@@ -36,7 +36,7 @@
                             <Grid>
                                 <Image Source="{Binding}" />
                                 <Rectangle Stroke="Red" StrokeThickness="1" 
-                                           Margin="{Binding DataContext.CropValue, ElementName=PDFWindow}"
+                                           Margin="{Binding DataContext.CropThickness, ElementName=PDFWindow}"
                                            Visibility="{Binding DataContext.IsCropping, ElementName=PDFWindow, Converter={StaticResource VisibilityConverter}}"/>
                             </Grid>
                         </Border>

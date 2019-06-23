@@ -1,7 +1,7 @@
 ﻿<Window x:Class="SheetMusicPDF.CropWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="CropWindow" Height="114" Width="372"
+        Title="CropWindow" Height="432" Width="450"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008" mc:Ignorable="d">
     <Grid>
@@ -9,9 +9,44 @@
             <RowDefinition Height="38*" />
             <RowDefinition Height="30" />
         </Grid.RowDefinitions>
-        <Slider ValueChanged="SliderCrop_ValueChanged" Margin="12,12,12,9" Name="SliderCrop"  IsSnapToTickEnabled="True" Maximum="25" TickPlacement="None" TickFrequency="0.1" SmallChange="1" LargeChange="10" AutoToolTipPlacement="BottomRight" />
-        <Button Content="Set Crop" Height="23" HorizontalAlignment="Left" Margin="271,3,0,0" Name="button1" VerticalAlignment="Top" Width="75" Click="Crop_Click" Grid.Row="1" />
-        <TextBlock Text="{Binding ElementName=SliderCrop, Path=Value, StringFormat='0.00'}" Height="24" HorizontalAlignment="Right" Margin="0,7,225,0" Name="label1" VerticalAlignment="Top" Grid.Row="1" />
-        <TextBlock Height="23" Margin="12,7,247,0" Name="textBlock1" Text="% Crop Bounds:" VerticalAlignment="Top" Grid.Row="1" />
+        <Button Content="Set Crop" Height="23" HorizontalAlignment="Left" Margin="341,3,0,0" Name="button1" VerticalAlignment="Top" Width="75" Click="Crop_Click" Grid.Row="1" />
+        <GroupBox IsEnabled="{Binding ElementName=radioUniform, Path=IsChecked}" Header="Uniform Crop" Height="78" HorizontalAlignment="Left" Margin="34,12,0,0" Name="groupBoxUniform" VerticalAlignment="Top" Width="382">
+            <Grid >
+                <Slider ValueChanged="SliderUniform_ValueChanged" Margin="0,20,11,0" Name="SliderUniform" IsSnapToTickEnabled="True" Maximum="25" TickPlacement="None" TickFrequency="0.1" SmallChange="1" LargeChange="10" AutoToolTipPlacement="BottomRight" Height="23" VerticalAlignment="Top" HorizontalAlignment="Right" Width="223" />
+                <TextBlock Height="23" Margin="10,20,0,0" Name="textBlock2" Text="% Crop Bounds:" VerticalAlignment="Top" HorizontalAlignment="Left" Width="90" />
+                <TextBlock Text="{Binding ElementName=SliderCrop, Path=Value, StringFormat='0.00'}" Height="24" HorizontalAlignment="Left" Margin="93,20,0,0" Name="label1" VerticalAlignment="Top" />
+            </Grid>
+        </GroupBox>
+        
+        <RadioButton Content="" Height="16" HorizontalAlignment="Left" Margin="12,49,0,0" Name="radioUniform" VerticalAlignment="Top" GroupName="CropType" IsChecked="True" />
+        <GroupBox IsEnabled="{Binding ElementName=radioHV, Path=IsChecked}" Header="Horizontal/Vertical Crop" Height="93" HorizontalAlignment="Left" Margin="34,93,0,0" Name="groupBoxHV" VerticalAlignment="Top" Width="382">
+            <Grid>
+                <Slider AutoToolTipPlacement="BottomRight" Height="23" IsSnapToTickEnabled="True" LargeChange="10" Margin="136,10,11,0" Maximum="25" Name="sliderH" SmallChange="1" TickFrequency="0.1" TickPlacement="None" VerticalAlignment="Top" ValueChanged="sliderH_ValueChanged" />
+                <TextBlock Height="24" HorizontalAlignment="Left" Margin="93,20,0,0" Name="textBlock4" Text="{Binding ElementName=SliderCrop, Path=Value, StringFormat=0.00}" VerticalAlignment="Top" />
+                <TextBlock Height="24" HorizontalAlignment="Left" Margin="93,49,0,0" Name="textBlock6" Text="{Binding ElementName=SliderCrop, Path=Value, StringFormat=0.00}" VerticalAlignment="Top" />
+                <Slider AutoToolTipPlacement="BottomRight" Height="23" IsSnapToTickEnabled="True" LargeChange="10" Margin="136,39,14,0" Maximum="25" Name="sliderV" SmallChange="1" TickFrequency="0.1" TickPlacement="None" VerticalAlignment="Top" ValueChanged="sliderV_ValueChanged" />
+                <TextBlock HorizontalAlignment="Left" Margin="10,10,0,40" Name="textBlock3" Text="% H Bound:" Width="90" />
+                <TextBlock Height="23" HorizontalAlignment="Left" Margin="10,39,0,0" Name="textBlock5" Text="% V Bound:" VerticalAlignment="Top" Width="90" />
+            </Grid>
+        </GroupBox>
+        <RadioButton Content="" Height="16" HorizontalAlignment="Left" Margin="12,137,0,0" Name="radioHV" VerticalAlignment="Top" GroupName="CropType" Checked="radio_Checked" />
+        <RadioButton Content="" Height="16" HorizontalAlignment="Left" Margin="12,0,0,74" Name="radioCustom" VerticalAlignment="Bottom" GroupName="CropType" Checked="radio_Checked" />
+        <GroupBox IsEnabled="{Binding ElementName=radioCustom, Path=IsChecked}" Header="Custom Crop" Height="164" HorizontalAlignment="Left" Margin="34,193,0,0" Name="groupBoxCustom" VerticalAlignment="Top" Width="382">
+            <Grid>
+                <Slider AutoToolTipPlacement="BottomRight" Height="23" IsSnapToTickEnabled="True" LargeChange="10" Margin="136,20,11,0" Maximum="25" Name="sliderLeft" SmallChange="1" TickFrequency="0.1" TickPlacement="None" VerticalAlignment="Top" ValueChanged="sliderLeft_ValueChanged" />
+                <Slider AutoToolTipPlacement="BottomRight" Height="23" IsSnapToTickEnabled="True" LargeChange="10" Margin="136,49,11,0" Maximum="25" Name="sliderTop" SmallChange="1" TickPlacement="None" VerticalAlignment="Top" ValueChanged="sliderTop_ValueChanged" TickFrequency="0.1" />
+                <TextBlock HorizontalAlignment="Left" Margin="10,20,0,89" Name="textBlock7" Text="% Left Bound:" Width="90" />
+                <TextBlock Height="24" HorizontalAlignment="Left" Margin="93,20,0,0" Name="textBlock8" Text="{Binding ElementName=SliderCrop, Path=Value, StringFormat=0.00}" VerticalAlignment="Top" />
+                <TextBlock Height="23" HorizontalAlignment="Left" Margin="10,49,0,0" Name="textBlock9" Text="% Top Bound:" VerticalAlignment="Top" Width="90" />
+                <TextBlock Height="24" HorizontalAlignment="Left" Margin="93,49,0,0" Name="textBlock10" Text="{Binding ElementName=SliderCrop, Path=Value, StringFormat=0.00}" VerticalAlignment="Top" />
+                <Slider AutoToolTipPlacement="BottomRight" Height="23" IsSnapToTickEnabled="True" LargeChange="10" Margin="136,79,11,0" Maximum="25" Name="sliderRight" SmallChange="1" TickFrequency="0.1" TickPlacement="None" VerticalAlignment="Top" ValueChanged="sliderRight_ValueChanged" />
+                
+                <TextBlock Height="23" HorizontalAlignment="Left" Margin="10,79,0,0" Name="textBlock1" Text="% Right Bound:" VerticalAlignment="Top" />
+                <TextBlock Height="24" HorizontalAlignment="Left" Margin="93,78,0,0" Name="textBlock11" Text="{Binding ElementName=SliderCrop, Path=Value, StringFormat=0.00}" VerticalAlignment="Top" />
+                <TextBlock Height="23" HorizontalAlignment="Left" Margin="10,107,0,0" Name="textBlock12" Text="% Low Bound:" VerticalAlignment="Top" Width="90" />
+                <TextBlock Height="24" HorizontalAlignment="Left" Margin="93,107,0,0" Name="textBlock13" Text="{Binding ElementName=SliderCrop, Path=Value, StringFormat=0.00}" VerticalAlignment="Top" />
+                <Slider AutoToolTipPlacement="BottomRight" Height="23" IsSnapToTickEnabled="True" LargeChange="10" Margin="136,108,11,0" Maximum="25" Name="sliderBottom" SmallChange="1" TickFrequency="0.1" TickPlacement="None" VerticalAlignment="Top" ValueChanged="sliderBottom_ValueChanged" />
+            </Grid>
+        </GroupBox>
     </Grid>
 </Window>
